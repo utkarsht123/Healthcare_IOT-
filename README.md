@@ -1,105 +1,68 @@
-# Deep Learning Architecture: Attention-CNN-BiLSTM for Healthcare IoT
+# Healthcare IoT Analytics
 
-## Architecture Overview
+A PyTorch pipeline that classifies patient health status ("Healthy" vs "Unhealthy") from
+time-series vital-sign readings collected by IoT sensors — temperature, systolic/diastolic
+blood pressure, heart rate, and device battery level. It combines a CNN + Bidirectional
+LSTM + self-attention model with an interactive Plotly Dash dashboard for per-patient
+monitoring. The script started as a Google Colab notebook (`iot_analytics.py` is the
+exported `.py` version).
 
-The proposed architecture is a hybrid deep learning model that combines Convolutional Neural Networks (CNN), Bidirectional Long Short-Term Memory (BiLSTM) networks, and attention mechanisms to create a powerful framework for healthcare IoT applications. This multi-layered approach enables sophisticated analysis of temporal health data while capturing both spatial and sequential patterns.
+## What it does
 
-## Model Components
+- **Preprocesses sensor data**: normalizes features with `StandardScaler` and builds
+  sliding-window sequences (default 30 timesteps) from a patient vitals CSV.
+- **Balances classes**: oversamples underrepresented health-status classes by adding
+  Gaussian noise to existing samples (`_augment_rare_classes`).
+- **Trains a hybrid deep learning model** (`BiLSTMAttentionModel`): parallel 1D-CNN and
+  bidirectional LSTM branches, the LSTM output passed through a multi-head self-attention
+  layer, concatenated and fed through fully connected layers to a classification head.
+  Trained with Adam + cross-entropy loss and manual early stopping (patience of 20 epochs,
+  up to 500 max epochs).
+- **Evaluates the model**: accuracy, precision, recall, F1, confusion matrix, and
+  training curve / attention-weight visualizations (matplotlib/seaborn).
+- **Assesses individual patients**: `assess_custom_patient()` runs a single patient's
+  30-step vitals sequence through the trained model and reports a risk classification;
+  `main()` demonstrates this on three hand-authored example patients (healthy, moderate
+  risk, high risk) and can also prompt for custom vitals on the command line.
+- **Interactive dashboard** (`create_dashboard`): a Dash app with a patient selector,
+  a live vitals graph, the model's prediction, a feature-importance bar chart (based on
+  per-feature standard deviation), and a z-score-based anomaly plot that flags outlier
+  readings in each vital sign.
 
-### 1. Convolutional Neural Network (CNN) Layers
+## Tech Stack
 
-The architecture begins with CNN layers that serve as feature extractors for spatial patterns in the input data:
+- **ML/DL**: PyTorch (CNN, BiLSTM, `nn.MultiheadAttention`), scikit-learn
+  (`StandardScaler`, `MinMaxScaler`, `KNNImputer`, train/test split, metrics)
+- **Data**: NumPy, pandas
+- **Visualization**: Matplotlib, Seaborn, Plotly, Dash
 
-- **Purpose**: Extract local spatial features from time series health data
-- **Structure**: Multiple 1D convolutional layers with increasing filter sizes
-- **Benefits**: Captures local patterns in vital signs and sensor readings
-- **Implementation**: Uses sliding kernels to identify relevant features regardless of their position in the input sequence
+## Running it
 
-### 2. Bidirectional LSTM Layers
+This repository contains a single script (`iot_analytics.py`); there's no `requirements.txt`
+included yet, so install the libraries it imports:
 
-Following the CNN layers, the architecture employs BiLSTM networks to process temporal dependencies:
+```bash
+pip install numpy pandas matplotlib seaborn scikit-learn torch plotly dash
+```
 
-- **Purpose**: Model temporal relationships and sequential patterns in health data
-- **Structure**: Bidirectional LSTM cells that process the sequence in both forward and backward directions
-- **Benefits**: Captures long-term dependencies and relationships between different time points
-- **Implementation**: Maintains two hidden states to preserve information from both past and future contexts
+The script expects a CSV named `healthcare_iot_target_dataset.csv` in the working
+directory (not included in this repo) with at least these columns: `Patient_ID`,
+`Timestamp`, `Sensor_ID`, `Sensor_Type`, `Target_Blood_Pressure`, `Target_Heart_Rate`,
+`Target_Health_Status` (used as the classification label — "Healthy"/"Unhealthy"), plus
+the vital-sign feature columns (e.g. temperature, blood pressure, heart rate, battery
+level).
 
-### 3. Self-Attention Mechanism
+```bash
+python iot_analytics.py
+```
 
-A key innovation in the architecture is the integration of a self-attention mechanism:
+Running it end-to-end loads the dataset, trains the model, prints evaluation metrics,
+walks through the three example patient assessments, and then optionally prompts for
+custom patient vitals in the terminal.
 
-- **Purpose**: Enhance the model's ability to focus on the most relevant parts of the input sequence
-- **Structure**: Calculates attention weights for different parts of the sequence
-- **Benefits**: Improves global feature extraction performance and parallel computing speed
-- **Implementation**: Generates attention scores that highlight important temporal patterns and relationships between different vital signs
+## Notes for anyone extending this
 
-### 4. Skip Connections
-
-The architecture incorporates skip connections to enhance gradient flow:
-
-- **Purpose**: Facilitate information flow and mitigate the vanishing gradient problem
-- **Structure**: Direct connections between earlier and later layers
-- **Benefits**: Improves training stability and model performance
-- **Implementation**: Concatenates or adds feature maps from previous layers to later layers
-
-### 5. Fully Connected Layers
-
-The final component consists of fully connected layers for classification or prediction:
-
-- **Purpose**: Transform extracted features into the desired output format
-- **Structure**: Multiple dense layers with decreasing units
-- **Benefits**: Enables final decision-making based on the extracted features
-- **Implementation**: Includes dropout for regularization and appropriate activation functions
-
-## Data Flow
-
-1. Time series healthcare data from IoT devices is fed into the CNN layers
-2. CNN layers extract spatial features and patterns
-3. The extracted features are passed to BiLSTM layers to capture temporal dependencies
-4. Self-attention mechanism weighs the importance of different time steps and features
-5. Skip connections enhance information flow between layers
-6. Fully connected layers produce the final output (classification or prediction)
-
-## Optimization Techniques
-
-The architecture implements several optimization strategies:
-
-- **Dropout layers**: Integrated into both LSTM and CNN components to prevent co-adaptation and reduce overfitting
-- **L2 regularization**: Controls model complexity by penalizing large weights
-- **Early stopping**: Prevents overfitting by monitoring validation loss
-- **Data augmentation**: Enhances training data variability and improves model generalization
-- **Feature importance analysis**: Uses techniques like SHAP to verify model decisions are based on relevant data
-
-## Performance Characteristics
-
-This architecture demonstrates exceptional performance in healthcare applications:
-
-- High accuracy in detecting anomalies in patient vital signs
-- Robust performance in classifying various health conditions
-- Low false positive rate (approximately 0.13%)
-- Excellent capability for early detection of health deterioration
-- Effective at capturing both spatial and temporal patterns in physiological data
-
-The Attention-CNN-BiLSTM architecture represents a significant advancement in healthcare IoT systems, enabling more accurate, reliable, and interpretable analysis of patient data for improved healthcare outcomes.
-
-Citations:
-[1] https://pmc.ncbi.nlm.nih.gov/articles/PMC11898937/
-[2] https://pmc.ncbi.nlm.nih.gov/articles/PMC11024260/
-[3] https://journal.esrgroups.org/jes/article/view/773
-[4] https://www.techscience.com/cmc/v77n3/55035
-[5] https://www.nature.com/articles/s41598-025-94500-5
-[6] https://www.nature.com/articles/s41598-024-66427-w
-[7] https://www.nature.com/articles/s41598-024-77876-8
-[8] https://ietresearch.onlinelibrary.wiley.com/doi/10.1049/gtd2.12763
-[9] https://ijettjournal.org/archive/ijett-v73i1p102
-[10] https://www.mdpi.com/1424-8220/25/1/251
-[11] https://www.mdpi.com/2076-3417/14/23/11342
-[12] https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2023.1273253/full
-[13] https://ietresearch.onlinelibrary.wiley.com/doi/10.1049/ell2.12869
-[14] https://dl.acm.org/doi/10.1145/3587716.3587792
-[15] https://onlinelibrary.wiley.com/doi/10.1155/2022/2638613
-[16] https://pubs.acs.org/doi/10.1021/acsomega.3c03247
-[17] https://www.mdpi.com/1424-8220/23/11/5204
-[18] https://worldscientific.com/doi/10.1142/S0219519423400134
-[19] https://pmc.ncbi.nlm.nih.gov/articles/PMC10798084/
-
+- The pipeline currently lives in one script; splitting data loading, the model, training,
+  and the dashboard into separate modules would make it easier to test and reuse.
+- The sample dataset isn't checked into the repo, so a compatible CSV is required to run
+  the training/evaluation flow end-to-end.
